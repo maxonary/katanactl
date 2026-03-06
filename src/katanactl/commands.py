@@ -7,14 +7,20 @@ from __future__ import annotations
 
 from .protocol import (
     CMD_ERROR,
+    CMD_EQ_GET,
+    CMD_EQ_SET,
     CMD_INPUT,
+    CMD_LIGHTING,
     CMD_PROFILE,
     CMD_SYSTEM_INFO,
     CMD_VOLUME,
+    EQ_REGISTERS,
     INPUT_BY_NAME,
     INPUT_NAMES,
     INPUT_SUB_QUERY,
     INPUT_SUB_SET,
+    LIGHT_SUB_GET_NAME,
+    LIGHT_SUB_ON_OFF,
     PROFILE_BY_NAME,
     PROFILE_NAMES,
     SYSINFO_FIRMWARE,
@@ -143,3 +149,63 @@ def get_volume_from_response(resp: bytes) -> int | None:
     if len(resp) < 5 or resp[0] != MAGIC or resp[1] != CMD_VOLUME:
         return None
     return resp[4]
+
+
+# ── EQ registers ─────────────────────────────────────────────────────────────
+
+def get_eq_register(hid: KatanaHID, reg_hi: int, reg_lo: int) -> bytes:
+    """Read an EQ register. Returns the raw data payload."""
+    resp = hid.send(CMD_EQ_GET, bytes([reg_hi, reg_lo, 0x00]))
+    _check_error(resp, CMD_EQ_GET)
+    return resp[3 : 3 + resp[2]]
+
+
+def set_eq_register(
+    hid: KatanaHID, reg_hi: int, reg_lo: int, value: bytes
+) -> bytes:
+    """Write an EQ register. Returns the raw data payload of the response."""
+    payload = bytes([reg_hi, reg_lo, 0x00, 0x00]) + value
+    resp = hid.send(CMD_EQ_SET, payload[:7])
+    _check_error(resp, CMD_EQ_SET)
+    return resp[3 : 3 + resp[2]]
+
+
+def get_all_eq(hid: KatanaHID) -> dict[str, str]:
+    """Read all known EQ registers and return hex-encoded raw values.
+
+    Returns 'unsupported' for registers that the firmware does not expose
+    (error 0x83 is common on older firmware versions).
+    """
+    result: dict[str, str] = {}
+    for name, (hi, lo) in EQ_REGISTERS.items():
+        try:
+            data = get_eq_register(hid, hi, lo)
+            result[name] = data.hex()
+        except (KatanaError, TimeoutError):
+            result[name] = "unsupported"
+    return result
+
+
+# ── Lighting ─────────────────────────────────────────────────────────────────
+
+def set_lighting(hid: KatanaHID, enabled: bool) -> bool:
+    """Turn lighting on or off for the current profile."""
+    value = 0x01 if enabled else 0x00
+    resp = hid.send(CMD_LIGHTING, bytes([LIGHT_SUB_ON_OFF, value]))
+    # Device may return error 0x02, but the command still works
+    return enabled
+
+
+def get_lighting_name(hid: KatanaHID, profile: int = 0) -> str:
+    """Get the lighting pattern name for a profile (0-5).
+
+    Returns 'Lights Off' if lighting is disabled for that profile.
+    """
+    resp = hid.send(CMD_LIGHTING, bytes([LIGHT_SUB_GET_NAME, profile]))
+    _check_error(resp, CMD_LIGHTING)
+    data = resp[3 : 3 + resp[2]]
+    if len(data) < 6:
+        return "unknown"
+    # Name starts at offset 5, encoded as UTF-16LE (char + 0x00)
+    raw_name = data[5:]
+    return raw_name.decode("utf-16-le", errors="replace").rstrip("\x00")

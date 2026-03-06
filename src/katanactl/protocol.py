@@ -39,6 +39,14 @@ INPUT_NAMES: dict[int, str] = {
     INPUT_USB_COMPUTER: "computer",
 }
 
+INPUT_DESCRIPTIONS: dict[str, str] = {
+    "bluetooth": "Bluetooth",
+    "aux": "AUX (3.5mm line-in)",
+    "optical": "Optical (S/PDIF Toslink)",
+    "usb": "USB mass storage",
+    "computer": "Computer (USB cable)",
+}
+
 INPUT_BY_NAME: dict[str, int] = {v: k for k, v in INPUT_NAMES.items()}
 
 # ── Input sub-commands ───────────────────────────────────────────────────────
@@ -60,4 +68,47 @@ PROFILE_NAMES: dict[int, str] = {
     5: "personal",
 }
 
+PROFILE_DESCRIPTIONS: dict[str, str] = {
+    "neutral": "Neutral (flat EQ)",
+    "profile-1": "Profile 1 (user-defined)",
+    "profile-2": "Profile 2 (user-defined)",
+    "profile-3": "Profile 3 (user-defined)",
+    "profile-4": "Profile 4 (user-defined)",
+    "personal": "Personal (temporary profile)",
+}
+
 PROFILE_BY_NAME: dict[str, int] = {v: k for k, v in PROFILE_NAMES.items()}
+
+# ── Lighting sub-commands (CMD_LIGHTING) ─────────────────────────────────────
+
+LIGHT_SUB_SET_PATTERN = 0x04
+LIGHT_SUB_GET_PATTERN = 0x05
+LIGHT_SUB_ON_OFF = 0x06
+LIGHT_SUB_SET_PALETTE = 0x0A
+LIGHT_SUB_GET_PALETTE = 0x0B
+LIGHT_SUB_SET_NAME = 0x15
+LIGHT_SUB_GET_NAME = 0x16
+
+# ── EQ registers (used with CMD_EQ_GET / CMD_EQ_SET) ────────────────────────
+
+EQ_REGISTERS: dict[str, tuple[int, int]] = {
+    "voice_clarity": (0x95, 0x04),
+    "voice_morph": (0x95, 0x05),
+    "crystalizer": (0x96, 0x07),
+    "equalizer": (0x96, 0x09),
+    "smart_volume": (0x96, 0x70),
+    "surround": (0x96, 0x71),
+    "dialog_plus": (0x96, 0x72),
+    "dolby": (0x97, 0x02),
+}
+
+EQ_DESCRIPTIONS: dict[str, str] = {
+    "voice_clarity": "Voice Clarity / Noise Reduction",
+    "voice_morph": "Voice Morph",
+    "crystalizer": "Crystalizer",
+    "equalizer": "Equalizer on/off",
+    "smart_volume": "Smart Volume",
+    "surround": "Surround / Immersion",
+    "dialog_plus": "Dialog+",
+    "dolby": "Dolby",
+}

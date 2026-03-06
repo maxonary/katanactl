@@ -1,0 +1,142 @@
+{
+    "_comment": "Add these accessories to the 'accessories' array in your Homebridge config.json. Replace KATANA_HOST with the IP of the machine running the katanactl API (e.g. 192.168.2.30).",
+
+    "accessories_to_add": [
+        {
+            "accessory": "HttpAdvancedAccessory",
+            "service": "Speaker",
+            "name": "Katana Volume",
+            "urls": {
+                "getVolume": {
+                    "url": "http://KATANA_HOST:8099/volume",
+                    "mappers": [{ "type": "jpath", "parameters": { "jpath": "$.percent" } }]
+                },
+                "setVolume": {
+                    "url": "http://KATANA_HOST:8099/volume",
+                    "method": "POST",
+                    "body": "{\"percent\": ${value}}",
+                    "contentType": "application/json"
+                },
+                "getMute": {
+                    "url": "http://KATANA_HOST:8099/volume",
+                    "mappers": [{ "type": "jpath", "parameters": { "jpath": "$.muted" } }]
+                },
+                "setMute": {
+                    "url": "http://KATANA_HOST:8099/mute",
+                    "method": "POST",
+                    "body": "{\"muted\": ${value}}",
+                    "contentType": "application/json"
+                }
+            }
+        },
+        {
+            "accessory": "HttpAdvancedAccessory",
+            "service": "Switch",
+            "name": "Katana Bluetooth",
+            "urls": {
+                "getOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "mappers": [
+                        { "type": "jpath", "parameters": { "jpath": "$.input" } },
+                        { "type": "static", "parameters": { "mapping": { "bluetooth": "1" }, "default": "0" } }
+                    ]
+                },
+                "setOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "method": "POST",
+                    "body": "{\"source\": \"bluetooth\"}",
+                    "contentType": "application/json",
+                    "onlyOn": true
+                }
+            },
+            "pollInterval": 30
+        },
+        {
+            "accessory": "HttpAdvancedAccessory",
+            "service": "Switch",
+            "name": "Katana AUX",
+            "urls": {
+                "getOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "mappers": [
+                        { "type": "jpath", "parameters": { "jpath": "$.input" } },
+                        { "type": "static", "parameters": { "mapping": { "aux": "1" }, "default": "0" } }
+                    ]
+                },
+                "setOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "method": "POST",
+                    "body": "{\"source\": \"aux\"}",
+                    "contentType": "application/json",
+                    "onlyOn": true
+                }
+            },
+            "pollInterval": 30
+        },
+        {
+            "accessory": "HttpAdvancedAccessory",
+            "service": "Switch",
+            "name": "Katana Optical",
+            "urls": {
+                "getOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "mappers": [
+                        { "type": "jpath", "parameters": { "jpath": "$.input" } },
+                        { "type": "static", "parameters": { "mapping": { "optical": "1" }, "default": "0" } }
+                    ]
+                },
+                "setOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "method": "POST",
+                    "body": "{\"source\": \"optical\"}",
+                    "contentType": "application/json",
+                    "onlyOn": true
+                }
+            },
+            "pollInterval": 30
+        },
+        {
+            "accessory": "HttpAdvancedAccessory",
+            "service": "Switch",
+            "name": "Katana USB",
+            "urls": {
+                "getOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "mappers": [
+                        { "type": "jpath", "parameters": { "jpath": "$.input" } },
+                        { "type": "static", "parameters": { "mapping": { "computer": "1" }, "default": "0" } }
+                    ]
+                },
+                "setOn": {
+                    "url": "http://KATANA_HOST:8099/input",
+                    "method": "POST",
+                    "body": "{\"source\": \"computer\"}",
+                    "contentType": "application/json",
+                    "onlyOn": true
+                }
+            },
+            "pollInterval": 30
+        },
+        {
+            "accessory": "HttpAdvancedAccessory",
+            "service": "Switch",
+            "name": "Katana Licht",
+            "urls": {
+                "getOn": {
+                    "url": "http://KATANA_HOST:8099/lighting",
+                    "mappers": [
+                        { "type": "jpath", "parameters": { "jpath": "$.pattern" } },
+                        { "type": "static", "parameters": { "mapping": { "Lights Off": "0" }, "default": "1" } }
+                    ]
+                },
+                "setOn": {
+                    "url": "http://KATANA_HOST:8099/lighting",
+                    "method": "POST",
+                    "body": "{\"enabled\": ${value}}",
+                    "contentType": "application/json"
+                }
+            },
+            "pollInterval": 60
+        }
+    ]
+}

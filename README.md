@@ -2,27 +2,34 @@
 
 Control the **Creative Sound BlasterX Katana** soundbar from Linux via USB HID.
 
-Provides a CLI tool, a REST API, and Home Assistant integration for:
+Provides a **CLI tool**, a **REST API** with Swagger docs, and a **Homebridge** configuration for Apple HomeKit integration.
 
-- Querying system info (firmware version, serial number)
-- Switching input sources (Bluetooth, AUX, Optical, USB, Computer)
-- Changing audio profiles (Neutral, Profile 1–4, Personal)
-- Controlling volume and mute via ALSA
+## Features
+
+- **System info** -- query firmware version, serial number, hardware ID
+- **Input switching** -- Bluetooth, AUX, Optical, USB, Computer
+- **Audio profiles** -- Neutral, Profile 1-4, Personal
+- **Volume & mute** -- via ALSA mixer
+- **Lighting** -- on/off control, pattern name query
+- **EQ registers** -- read Crystalizer, Surround, Dialog+, Dolby, etc. (firmware-dependent)
 
 ## Requirements
 
-- Raspberry Pi (or any Linux machine) with the Katana connected via USB
+- Linux (tested on Raspberry Pi OS)
 - Python 3.10+
-- The Katana exposes two HID interfaces; this tool uses the 64-byte control interface (`/dev/hidrawN`, interface 4)
+- Creative Sound BlasterX Katana connected via USB
+- The Katana exposes two HID interfaces; this tool uses the 64-byte control interface (`/dev/hidrawN`, USB interface 4)
 
 ## Installation
 
 ```bash
-cd /home/pi/soundblaster-katana-ctl
-pip install -e .
+git clone https://github.com/maxonary/soundblaster-katana-ctl.git
+cd soundblaster-katana-ctl
+python3 -m venv .venv
+.venv/bin/pip install -e .
 ```
 
-### udev rule (optional, for non-root access)
+### udev rule (non-root access)
 
 ```bash
 sudo cp udev/99-katana.rules /etc/udev/rules.d/
@@ -30,43 +37,49 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
-## CLI Usage
+## CLI
 
 ```bash
 # System info
 katanactl info
 
-# Query current input
-katanactl input
+# List available inputs and profiles
+katanactl inputs
+katanactl profiles
 
-# Switch input
+# Query / switch input
+katanactl input
 katanactl input computer
 katanactl input bluetooth
-katanactl input aux
-katanactl input optical
-katanactl input usb
 
-# Switch profile (0-5 or name)
+# Switch profile (by number or name)
 katanactl profile neutral
 katanactl profile 2
-katanactl profile personal
 
-# Volume control (via ALSA)
-katanactl volume          # query
-katanactl volume 75       # set to 75%
-katanactl volume --mute   # mute
-katanactl volume --unmute # unmute
+# Volume (via ALSA)
+katanactl volume
+katanactl volume 75
+katanactl volume --mute
+katanactl volume --unmute
+
+# Lighting
+katanactl lighting
+katanactl lighting on
+katanactl lighting off
+
+# EQ registers (firmware-dependent)
+katanactl eq
 ```
 
 ## REST API
 
-Start the API server:
+Start manually:
 
 ```bash
-uvicorn katanactl.api:app --host 0.0.0.0 --port 8099
+.venv/bin/uvicorn katanactl.api:app --host 0.0.0.0 --port 8099
 ```
 
-Or install as a systemd service:
+Or as a systemd service:
 
 ```bash
 sudo cp systemd/katanactl-api.service /etc/systemd/system/
@@ -74,30 +87,50 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now katanactl-api
 ```
 
-### Endpoints
-
-| Method | Path       | Description                |
-|--------|------------|----------------------------|
-| GET    | `/info`    | System info                |
-| GET    | `/input`   | Current input source       |
-| POST   | `/input`   | Set input source           |
-| POST   | `/profile` | Switch profile             |
-| GET    | `/volume`  | Current volume & mute      |
-| POST   | `/volume`  | Set volume (0-100)         |
-| POST   | `/mute`    | Mute/unmute                |
-| GET    | `/health`  | Health check               |
-
 Interactive docs at `http://<host>:8099/docs`.
 
-## Home Assistant
+### Endpoints
 
-Copy `homeassistant/katana.yaml` and include it in your HA configuration. Replace `KATANA_HOST` with the Pi's IP address. See the file for sensor, input_select, and automation examples.
+| Method | Path            | Description                              |
+|--------|-----------------|------------------------------------------|
+| GET    | `/inputs`       | List available input sources             |
+| GET    | `/profiles`     | List available audio profiles            |
+| GET    | `/eq/registers` | List available EQ register names         |
+| GET    | `/info`         | Device firmware, serial, hardware ID     |
+| GET    | `/input`        | Current input source                     |
+| POST   | `/input`        | Switch input `{"source": "bluetooth"}`   |
+| POST   | `/profile`      | Switch profile `{"profile": "neutral"}`  |
+| GET    | `/volume`       | Current volume & mute state              |
+| POST   | `/volume`       | Set volume `{"percent": 75}`             |
+| POST   | `/mute`         | Mute/unmute `{"muted": true}`            |
+| GET    | `/eq`           | Read all EQ registers                    |
+| GET    | `/lighting`     | Current lighting pattern name            |
+| POST   | `/lighting`     | Lighting on/off `{"enabled": true}`      |
+| GET    | `/health`       | Device availability check                |
 
-## Protocol Reference
+## Homebridge (Apple HomeKit)
 
-Based on the reverse-engineered USB HID protocol documented at [therion23/KatanaHacking](https://github.com/therion23/KatanaHacking).
+Install the [homebridge-http-advanced-accessory](https://www.npmjs.com/package/homebridge-http-advanced-accessory) plugin:
 
-Command frame: `[0x5A] [cmd] [len] [payload...]` — responses are 64 bytes, zero-padded, same structure.
+```bash
+npm install -g homebridge-http-advanced-accessory
+```
+
+Then add the accessories from `homebridge/config-snippet.json` to your Homebridge `config.json`. Replace `KATANA_HOST` with the IP of the machine running the API. This gives you:
+
+- **Volume slider** with mute
+- **Input switches** (Bluetooth, AUX, Optical, USB)
+- **Lighting switch**
+
+All controllable via Siri, the Home app, and automations.
+
+## USB HID Protocol
+
+Based on the reverse-engineered protocol documented at [therion23/KatanaHacking](https://github.com/therion23/KatanaHacking).
+
+Command frame: `[0x5A] [cmd] [len] [payload...]` -- responses are 64 bytes, zero-padded, same structure.
+
+The device sends unsolicited status messages (e.g. input-status changes) at any time. The transport layer drains stale data and retries reads to find the expected response.
 
 ## License
 

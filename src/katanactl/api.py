@@ -11,12 +11,24 @@ from pydantic import BaseModel, Field
 
 from .commands import (
     KatanaError,
+    get_all_eq,
     get_input,
+    get_lighting_name,
     get_system_info,
     set_input,
+    set_lighting,
     set_profile,
 )
-from .protocol import INPUT_BY_NAME, PROFILE_BY_NAME
+from .protocol import (
+    EQ_DESCRIPTIONS,
+    EQ_REGISTERS,
+    INPUT_BY_NAME,
+    INPUT_DESCRIPTIONS,
+    INPUT_NAMES,
+    PROFILE_BY_NAME,
+    PROFILE_DESCRIPTIONS,
+    PROFILE_NAMES,
+)
 from .transport import KatanaHID, find_hidraw_device
 from .volume import get_volume, set_mute, set_volume
 
@@ -71,7 +83,40 @@ class MuteRequest(BaseModel):
     muted: bool
 
 
-# ── Endpoints ────────────────────────────────────────────────────────────────
+class LightingRequest(BaseModel):
+    enabled: bool = Field(..., description="Turn lighting on (true) or off (false)")
+
+
+# ── Reference endpoints ──────────────────────────────────────────────────────
+
+@app.get("/inputs")
+def api_list_inputs() -> list[dict]:
+    """List all available input sources with their API names."""
+    return [
+        {"name": name, "description": INPUT_DESCRIPTIONS[name]}
+        for name in INPUT_BY_NAME
+    ]
+
+
+@app.get("/profiles")
+def api_list_profiles() -> list[dict]:
+    """List all available audio profiles with their API names."""
+    return [
+        {"id": num, "name": name, "description": PROFILE_DESCRIPTIONS[name]}
+        for num, name in PROFILE_NAMES.items()
+    ]
+
+
+@app.get("/eq/registers")
+def api_list_eq_registers() -> list[dict]:
+    """List all available EQ registers with their API names."""
+    return [
+        {"name": name, "description": EQ_DESCRIPTIONS[name]}
+        for name in EQ_REGISTERS
+    ]
+
+
+# ── Device endpoints ─────────────────────────────────────────────────────────
 
 @app.get("/info")
 def api_info() -> dict:
@@ -134,6 +179,32 @@ def api_set_mute(req: MuteRequest) -> dict:
         return set_mute(req.muted)
     except subprocess.CalledProcessError:
         raise HTTPException(status_code=503, detail=DEVICE_UNAVAILABLE)
+
+
+@app.get("/eq")
+def api_get_eq() -> dict:
+    """Read all EQ register values (raw hex).
+
+    Note: EQ registers may return 'unsupported' on some firmware versions.
+    """
+    with _hid() as hid:
+        return get_all_eq(hid)
+
+
+@app.get("/lighting")
+def api_get_lighting() -> dict:
+    """Get the lighting pattern name for the current profile."""
+    with _hid() as hid:
+        name = get_lighting_name(hid)
+    return {"pattern": name}
+
+
+@app.post("/lighting")
+def api_set_lighting(req: LightingRequest) -> dict:
+    """Turn lighting on or off."""
+    with _hid() as hid:
+        result = set_lighting(hid, req.enabled)
+    return {"enabled": result}
 
 
 @app.get("/health")
