@@ -8,3 +8,5 @@ build/
 *.swp
 *.swo
 .env
+homebridge-plugin/node_modules/
+homebridge-plugin/dist/

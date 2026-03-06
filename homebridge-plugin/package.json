@@ -1,0 +1,27 @@
+{
+  "name": "homebridge-katana",
+  "version": "0.1.0",
+  "description": "Homebridge plugin for the Creative Sound BlasterX Katana soundbar",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "tsc"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "creative",
+    "soundblaster",
+    "katana"
+  ],
+  "engines": {
+    "homebridge": "^1.6.0",
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "homebridge": "^1.8.0",
+    "typescript": "^5.0.0"
+  }
+}
