@@ -26,12 +26,13 @@ export class KatanaAccessory {
 
   private readonly tvService: Service;
   private readonly speakerService: Service;
-  private readonly lightService: Service;
+  private readonly volumeLightService: Service;
+  private readonly ledSwitchService: Service;
 
   private currentInput: InputName = 'computer';
   private currentVolume = 50;
   private currentMuted = false;
-  private lightOn = false;
+  private ledOn = false;
   private deviceActive = true;
 
   constructor(log: Logging, api: API, accessory: PlatformAccessory, client: KatanaApiClient) {
@@ -141,16 +142,38 @@ export class KatanaAccessory {
       this.tvService.addLinkedService(inputService);
     }
 
-    // -- Lightbulb Service --
-    this.lightService = accessory.getService(Svc.Lightbulb) ||
-      accessory.addService(Svc.Lightbulb, 'Katana LED', 'katana-light');
+    // -- Volume as dimmable Lightbulb --
+    // Brightness 0-100 = Volume 0-100%, On/Off = Unmute/Mute
+    // This gives a nice slider in HomeKit and works with Siri voice commands.
+    this.volumeLightService = accessory.getService(Svc.Lightbulb) ||
+      accessory.addService(Svc.Lightbulb, 'Katana Volume', 'katana-volume-light');
 
-    this.lightService.getCharacteristic(C.On)
-      .onGet(() => this.lightOn)
+    this.volumeLightService.getCharacteristic(C.On)
+      .onGet(() => !this.currentMuted)
       .onSet(async (value: CharacteristicValue) => {
-        this.lightOn = value as boolean;
-        this.log.info('Lighting:', this.lightOn ? 'ON' : 'OFF');
-        await this.client.setLighting(this.lightOn);
+        this.currentMuted = !(value as boolean);
+        this.log.info('Mute:', this.currentMuted);
+        await this.client.setMute(this.currentMuted);
+      });
+
+    this.volumeLightService.getCharacteristic(C.Brightness)
+      .onGet(() => this.currentVolume)
+      .onSet(async (value: CharacteristicValue) => {
+        this.currentVolume = value as number;
+        this.log.info('Volume:', this.currentVolume, '%');
+        await this.client.setVolume(this.currentVolume);
+      });
+
+    // -- LED Lighting Switch --
+    this.ledSwitchService = accessory.getServiceById(Svc.Switch, 'katana-led') ||
+      accessory.addService(Svc.Switch, 'Katana LED', 'katana-led');
+
+    this.ledSwitchService.getCharacteristic(C.On)
+      .onGet(() => this.ledOn)
+      .onSet(async (value: CharacteristicValue) => {
+        this.ledOn = value as boolean;
+        this.log.info('LED:', this.ledOn ? 'ON' : 'OFF');
+        await this.client.setLighting(this.ledOn);
       });
 
     // -- Initial state & polling --
@@ -160,9 +183,11 @@ export class KatanaAccessory {
 
   private async adjustVolume(step: number): Promise<void> {
     this.currentVolume = Math.max(0, Math.min(100, this.currentVolume + step));
-    this.log.info('Volume:', this.currentVolume);
+    this.log.info('Volume:', this.currentVolume, '%');
     await this.client.setVolume(this.currentVolume);
-    this.speakerService.updateCharacteristic(this.api.hap.Characteristic.Volume, this.currentVolume);
+    const C = this.api.hap.Characteristic;
+    this.speakerService.updateCharacteristic(C.Volume, this.currentVolume);
+    this.volumeLightService.updateCharacteristic(C.Brightness, this.currentVolume);
   }
 
   private async refreshState(): Promise<void> {
@@ -180,10 +205,12 @@ export class KatanaAccessory {
         if (volume.percent !== null) {
           this.currentVolume = volume.percent;
           this.speakerService.updateCharacteristic(C.Volume, this.currentVolume);
+          this.volumeLightService.updateCharacteristic(C.Brightness, this.currentVolume);
         }
         if (volume.muted !== null) {
           this.currentMuted = volume.muted;
           this.speakerService.updateCharacteristic(C.Mute, this.currentMuted);
+          this.volumeLightService.updateCharacteristic(C.On, !this.currentMuted);
         }
       }
 
@@ -196,8 +223,8 @@ export class KatanaAccessory {
       }
 
       if (lighting !== null) {
-        this.lightOn = lighting;
-        this.lightService.updateCharacteristic(C.On, this.lightOn);
+        this.ledOn = lighting;
+        this.ledSwitchService.updateCharacteristic(C.On, this.ledOn);
       }
 
       if (info) {
