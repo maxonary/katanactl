@@ -1,4 +1,4 @@
-# soundblaster-katana-ctl
+# soundblaster-katana-ctl and homebridge-katana
 
 Control the **Creative Sound BlasterX Katana** soundbar from Linux via USB HID.
 
