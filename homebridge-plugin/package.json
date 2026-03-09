@@ -3,7 +3,22 @@
   "version": "0.1.0",
   "description": "Homebridge plugin for the Creative Sound BlasterX Katana soundbar",
   "license": "MIT",
+  "author": "Maximilian Martin Arnold",
   "main": "dist/index.js",
+  "files": [
+    "dist/",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxonary/katanactl.git",
+    "directory": "homebridge-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/maxonary/katanactl/issues"
+  },
+  "homepage": "https://github.com/maxonary/katanactl/tree/main/homebridge-plugin#readme",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
