@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict');
+const {EventEmitter}=require('node:events');
+const hap=require('hap-nodejs');
+const {KatanaLight}=require('./dist/katana-light');
+const events=new EventEmitter();
+const api={hap,on:events.on.bind(events)};
+const accessory=new hap.Accessory('Katana Licht',hap.uuid.generate('lighting-test'));
+let state={enabled:true,pattern:'Solo',hue:0,saturation:100,brightness:30};
+let colors=[],onoffs=[];
+const client={getLightingState:async()=>state,setLightingColor:async c=>{colors.push(c);state={...state,...c};return state;},setLighting:async enabled=>{onoffs.push(enabled);state={...state,enabled};}};
+new KatanaLight({debug:()=>{}},api,accessory,client);
+const light=accessory.getService(hap.Service.Lightbulb);
+const set=(C,v)=>new Promise((resolve,reject)=>light.getCharacteristic(C).setValue(v,e=>e?reject(e):resolve()));
+(async()=>{
+ await new Promise(resolve=>setImmediate(resolve));
+ await Promise.all([set(hap.Characteristic.Hue,120),set(hap.Characteristic.Saturation,80),set(hap.Characteristic.Brightness,55)]);
+ assert.equal(colors.length,1);assert.deepEqual(colors[0],{hue:120,saturation:80,brightness:55,enabled:true});
+ await set(hap.Characteristic.On,false);assert.deepEqual(onoffs,[false]);assert.equal(colors.length,1);
+ assert.equal(light.getCharacteristic(hap.Characteristic.On).value,false);
+ events.emit('shutdown');console.log('HomeKit HSV batching and independent on/off passed');
+})().catch(e=>{events.emit('shutdown');console.error(e);process.exitCode=1;});

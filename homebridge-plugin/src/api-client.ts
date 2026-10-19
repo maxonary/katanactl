@@ -17,6 +17,10 @@ export interface KatanaInput {
 
 export interface KatanaLighting {
   pattern: string;
+  enabled: boolean;
+  hue?: number;
+  saturation?: number;
+  brightness?: number;
 }
 
 export interface KatanaHealth {
@@ -118,17 +122,28 @@ export class KatanaApiClient {
   }
 
   async getLighting(): Promise<boolean | null> {
-    const data = await this.request<KatanaLighting>('/lighting');
+    const data = await this.getLightingState();
     if (!data) {
       return null;
     }
-    return data.pattern !== 'Lights Off';
+    return data.enabled;
+  }
+
+  async getLightingState(): Promise<KatanaLighting | null> {
+    return this.request<KatanaLighting>('/lighting');
+  }
+
+  async setLightingColor(color: {hue: number; saturation: number; brightness: number; enabled: boolean}): Promise<KatanaLighting> {
+    const result=await this.request<KatanaLighting>('/lighting/color', {method:'POST',body:JSON.stringify(color)});
+    if(!result) throw new Error('Katana did not confirm LED color');
+    return result;
   }
 
   async setLighting(enabled: boolean): Promise<void> {
-    await this.request('/lighting', {
+    const result = await this.request('/lighting', {
       method: 'POST',
       body: JSON.stringify({ enabled }),
     });
+    if (!result) throw new Error('Katana LED on/off was not confirmed');
   }
 }

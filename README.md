@@ -135,3 +135,35 @@ The device sends unsolicited status messages (e.g. input-status changes) at any 
 ## License
 
 MIT
+
+
+### RGB lighting (Katana firmware 2.0.171220.130)
+
+`GET /lighting` reports the actual LED enabled state, lighting profile/effect,
+HSV brightness and RGB when the selected effect has a readable palette.
+`POST /lighting` with `{"enabled": true}` controls on/off without changing effects.
+`POST /lighting/color` accepts `hue` (0–360), `saturation` (0–100), `brightness`
+(0–100), and optional `enabled`. It selects the static Solo effect and verifies
+its palette by reading it back. No audio profile, volume or EQ commands are used.
+
+Example:
+
+```sh
+curl -H 'Content-Type: application/json' \
+  -d '{"hue":30,"saturation":85,"brightness":30,"enabled":true}' \
+  http://localhost:8099/lighting/color
+```
+
+The wire format was checked against the original application's USB capture
+linked from [OpenRGB issue 1065](https://gitlab.com/CalcProgrammer1/OpenRGB/-/issues/1065)
+and verified on the connected Katana: palette bytes are brightness, blue, green,
+red; the Solo color applies to the whole LED strip. Lighting 0x08 selects an LED
+effect, independently of audio profile command 0x1A. Creative's command 0x02 with
+status 0x00 is a successful write acknowledgement; lighting responses must also
+match the requested subcommand to ignore asynchronous notifications.
+
+Validation: `PYTHONPATH=src python3 -m unittest discover -s tests`. Live red/blue
+writes and readback passed; the user visually confirmed the colors. Lighting
+settings before deployment are saved on Bedroom in
+`/var/backups/katana-lighting-before-colors.json`; original source and plugin
+build are in `/var/backups/katana-led-20261019`.

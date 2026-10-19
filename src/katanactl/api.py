@@ -14,6 +14,8 @@ from .commands import (
     get_all_eq,
     get_input,
     get_lighting_name,
+    get_lighting_state,
+    set_lighting_color,
     get_system_info,
     set_input,
     set_lighting,
@@ -81,6 +83,13 @@ class VolumeRequest(BaseModel):
 
 class MuteRequest(BaseModel):
     muted: bool
+
+
+class LightingColorRequest(BaseModel):
+    hue: float = Field(..., ge=0, le=360)
+    saturation: float = Field(..., ge=0, le=100)
+    brightness: int = Field(..., ge=0, le=100)
+    enabled: bool | None = None
 
 
 class LightingRequest(BaseModel):
@@ -195,16 +204,24 @@ def api_get_eq() -> dict:
 def api_get_lighting() -> dict:
     """Get the lighting pattern name for the current profile."""
     with _hid() as hid:
-        name = get_lighting_name(hid)
-    return {"pattern": name}
+        return get_lighting_state(hid)
 
 
 @app.post("/lighting")
 def api_set_lighting(req: LightingRequest) -> dict:
     """Turn lighting on or off."""
     with _hid() as hid:
-        result = set_lighting(hid, req.enabled)
-    return {"enabled": result}
+        set_lighting(hid, req.enabled)
+        state = get_lighting_state(hid)
+        if state["enabled"] != req.enabled:
+            raise KatanaError("Katana did not confirm LED on/off")
+        return state
+
+
+@app.post("/lighting/color")
+def api_set_lighting_color(req: LightingColorRequest) -> dict:
+    with _hid() as hid:
+        return set_lighting_color(hid, req.hue, req.saturation, req.brightness, req.enabled)
 
 
 @app.get("/health")

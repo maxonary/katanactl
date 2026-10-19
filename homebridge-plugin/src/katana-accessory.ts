@@ -27,12 +27,10 @@ export class KatanaAccessory {
   private readonly tvService: Service;
   private readonly speakerService: Service;
   private readonly volumeLightService: Service;
-  private readonly ledSwitchService: Service;
 
   private currentInput: InputName = 'computer';
   private currentVolume = 50;
   private currentMuted = false;
-  private ledOn = false;
   private deviceActive = true;
 
   constructor(log: Logging, api: API, accessory: PlatformAccessory, client: KatanaApiClient) {
@@ -164,17 +162,9 @@ export class KatanaAccessory {
         await this.client.setVolume(this.currentVolume);
       });
 
-    // -- LED Lighting Switch --
-    this.ledSwitchService = accessory.getServiceById(Svc.Switch, 'katana-led') ||
-      accessory.addService(Svc.Switch, 'Katana LED', 'katana-led');
-
-    this.ledSwitchService.getCharacteristic(C.On)
-      .onGet(() => this.ledOn)
-      .onSet(async (value: CharacteristicValue) => {
-        this.ledOn = value as boolean;
-        this.log.info('LED:', this.ledOn ? 'ON' : 'OFF');
-        await this.client.setLighting(this.ledOn);
-      });
+    // LED color/brightness now live on a separate light accessory.
+    const oldLed = accessory.getServiceById(Svc.Switch, 'katana-led');
+    if (oldLed) accessory.removeService(oldLed);
 
     // -- Initial state & polling --
     this.refreshState();
@@ -192,10 +182,9 @@ export class KatanaAccessory {
 
   private async refreshState(): Promise<void> {
     try {
-      const [volume, input, lighting, info] = await Promise.all([
+      const [volume, input, info] = await Promise.all([
         this.client.getVolume(),
         this.client.getInput(),
-        this.client.getLighting(),
         this.client.getInfo(),
       ]);
 
@@ -220,11 +209,6 @@ export class KatanaAccessory {
         if (id) {
           this.tvService.updateCharacteristic(C.ActiveIdentifier, id);
         }
-      }
-
-      if (lighting !== null) {
-        this.ledOn = lighting;
-        this.ledSwitchService.updateCharacteristic(C.On, this.ledOn);
       }
 
       if (info) {

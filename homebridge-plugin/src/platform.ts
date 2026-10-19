@@ -5,6 +5,7 @@ import type {
   PlatformAccessory,
   PlatformConfig,
 } from 'homebridge';
+import { KatanaLight } from './katana-light';
 import { KatanaAccessory } from './katana-accessory';
 import { KatanaApiClient } from './api-client';
 
@@ -46,6 +47,16 @@ export class KatanaPlatform implements DynamicPlatformPlugin {
         'The accessory will be registered but may not respond until the device is powered on.',
       );
     }
+
+    const lightUuid = this.api.hap.uuid.generate('katana-lighting');
+    let light = this.accessories.find(a => a.UUID === lightUuid);
+    const newLight = !light;
+    if (!light) {
+      light = new this.api.platformAccessory('Katana Licht', lightUuid);
+    }
+    new KatanaLight(this.log, this.api, light, this.client);
+    if (newLight) this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [light]);
+    else this.api.updatePlatformAccessories([light]);
 
     const uuid = this.api.hap.uuid.generate('katana-soundbar');
     const name = (this.config.name as string) || 'Katana';

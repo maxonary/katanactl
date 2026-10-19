@@ -209,3 +209,60 @@ def get_lighting_name(hid: KatanaHID, profile: int = 0) -> str:
     # Name starts at offset 5, encoded as UTF-16LE (char + 0x00)
     raw_name = data[5:]
     return raw_name.decode("utf-16-le", errors="replace").rstrip("\x00")
+
+
+# Captured Creative application packets (OpenRGB issue 1065), verified on
+# Katana firmware 2.0.171220.130. Lighting profiles are independent of audio EQ.
+def _lighting_data(hid: KatanaHID, payload: bytes) -> bytes:
+    resp = hid.send(CMD_LIGHTING, payload)
+    if resp[1] == CMD_ERROR:
+        # Creative uses command 0x02 with status 0x00 as a successful write ACK.
+        if len(resp) > 5 and resp[3] == CMD_LIGHTING and resp[4] == 0:
+            return b""
+        _check_error(resp, CMD_LIGHTING)
+    return resp[3:3 + resp[2]]
+
+
+def get_lighting_state(hid: KatanaHID) -> dict:
+    import colorsys
+    on = _lighting_data(hid, bytes([0x07]))
+    selected = _lighting_data(hid, bytes([0x10]))
+    if len(on) < 2 or len(selected) < 2:
+        raise KatanaError("Incomplete lighting status")
+    profile = selected[1]
+    mode_data = _lighting_data(hid, bytes([0x09, profile]))
+    if len(mode_data) < 3:
+        raise KatanaError("Incomplete lighting mode")
+    mode = mode_data[2]
+    enabled = bool(on[1])
+    result = {"enabled": enabled, "profile": profile, "mode": mode,
+              "pattern": "Lights Off" if not enabled else {1:"Cycle",3:"Solo",4:"Wave",5:"Pulsate",8:"Aurora"}.get(mode,"Custom")}
+    try:
+        palette = _lighting_data(hid, bytes([0x0B, 0, mode, 1, 1, 1]))
+        if len(palette) >= 9:
+            brightness, blue, green, red = palette[5:9]
+            hue, saturation, _ = colorsys.rgb_to_hsv(red/255,green/255,blue/255)
+            result.update(hue=round(hue*360,2), saturation=round(saturation*100,2),
+                          brightness=round(brightness*100/255), rgb=[red,green,blue])
+    except KatanaError:
+        pass  # Effects without a palette still support on/off.
+    return result
+
+
+def set_lighting_color(hid: KatanaHID, hue: float, saturation: float, brightness: int,
+                       enabled: bool | None = None) -> dict:
+    import colorsys
+    if not (0 <= hue <= 360 and 0 <= saturation <= 100 and 0 <= brightness <= 100):
+        raise ValueError("Invalid HSV color")
+    before = get_lighting_state(hid)
+    red, green, blue = [round(c*255) for c in colorsys.hsv_to_rgb(hue/360,saturation/100,1)]
+    level = round(brightness*255/100)
+    # 0x08 selects a lighting effect, never an audio/EQ profile (0x1A).
+    _lighting_data(hid, bytes([0x08, before["profile"], 3]))
+    _lighting_data(hid, bytes([0x0A,0,3,1,1,level,blue,green,red]))
+    if enabled is not None:
+        _lighting_data(hid, bytes([0x06,int(enabled)]))
+    state = get_lighting_state(hid)
+    if state.get("rgb") != [red,green,blue] or abs(state.get("brightness",-100)-brightness)>1:
+        raise KatanaError("Katana did not confirm the requested color")
+    return state

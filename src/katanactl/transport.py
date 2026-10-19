@@ -10,6 +10,7 @@ retries reads until it finds the expected response command byte.
 
 from __future__ import annotations
 
+import fcntl
 import glob
 import os
 import select
@@ -54,6 +55,8 @@ class KatanaHID:
 
     def open(self) -> None:
         self._fd = os.open(self._path, os.O_RDWR | os.O_NONBLOCK)
+        # Serialize API/CLI clients across processes, including read-modify-write.
+        fcntl.flock(self._fd, fcntl.LOCK_EX)
 
     def close(self) -> None:
         if self._fd is not None:
@@ -121,7 +124,14 @@ class KatanaHID:
                     f"after {READ_TIMEOUT_S}s"
                 )
             if len(resp) >= 2 and resp[0] == MAGIC:
-                if resp[1] == command or resp[1] == CMD_ERROR:
+                if command == 0x3A and payload:
+                    # Lighting writes also emit name/status notifications. Match
+                    # the subcommand, including Creative's 0x02 success ACK.
+                    if resp[1] == command and len(resp) > 3 and resp[3] == payload[0]:
+                        return resp
+                    if resp[1] == CMD_ERROR and len(resp) > 5 and resp[3] == command and resp[5] == payload[0]:
+                        return resp
+                elif resp[1] == command or resp[1] == CMD_ERROR:
                     return resp
 
         raise TimeoutError(
