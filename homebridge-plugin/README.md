@@ -43,7 +43,7 @@ Add the `SoundBlasterKatana` platform to your Homebridge `config.json`:
 ## Exposed HomeKit Services
 
 - **Television** — input selector (USB, Bluetooth, Aux, Optical, TOSLINK) with remote-key volume control
-- **Dimmable Lightbulb** — brightness slider mapped to volume (0–100%), on/off mapped to mute. Works with Siri: "Set Katana Volume to 40%"
+- **Receiver speaker** — linked native volume up/down and mute controls for the iPhone Control Centre Remote. The former volume-as-light service is removed; AirPlay software volume remains independent.
 - **Katana Licht** — a separate RGB light with a color wheel, brightness and on/off.
   Color/brightness changes select the static Solo effect. On/off alone preserves
   the selected effect. Audio volume and EQ are independent.

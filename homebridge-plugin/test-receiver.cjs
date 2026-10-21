@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const {EventEmitter}=require('node:events');
+const hap=require('hap-nodejs');
+const {KatanaAccessory}=require('./dist/katana-accessory');
+const events=new EventEmitter();
+const api={hap,on:events.on.bind(events)};
+const accessory=new hap.Accessory('Katana',hap.uuid.generate('receiver-test'));
+accessory.addService(hap.Service.Lightbulb,'Katana Volume','katana-volume-light');
+accessory.addService(hap.Service.Switch,'Katana LED','katana-led');
+let volume=40,muted=false;
+const client={getVolume:async()=>({percent:volume,muted}),getInput:async()=> 'computer',getInfo:async()=>null,setVolume:async v=>{volume=v;},setMute:async m=>{muted=m;}};
+new KatanaAccessory({info:()=>{},debug:()=>{}},api,accessory,client);
+const set=(svc,C,v)=>new Promise((resolve,reject)=>svc.getCharacteristic(C).setValue(v,e=>e?reject(e):resolve()));
+(async()=>{
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(accessory.getService(hap.Service.Lightbulb),undefined);
+ const speaker=accessory.getService(hap.Service.TelevisionSpeaker);
+ assert(accessory.getService(hap.Service.Television).linkedServices.includes(speaker));
+ assert.equal(speaker.getCharacteristic(hap.Characteristic.VolumeControlType).value,hap.Characteristic.VolumeControlType.RELATIVE_WITH_CURRENT);
+ await set(speaker,hap.Characteristic.VolumeSelector,hap.Characteristic.VolumeSelector.INCREMENT);assert.equal(volume,45);
+ await set(speaker,hap.Characteristic.VolumeSelector,hap.Characteristic.VolumeSelector.DECREMENT);assert.equal(volume,40);
+ await set(speaker,hap.Characteristic.Mute,true);assert.equal(muted,true);
+ events.emit('shutdown');console.log('Receiver +/- and mute passed; volume light removed');
+})().catch(e=>{events.emit('shutdown');console.error(e);process.exitCode=1;});

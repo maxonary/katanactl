@@ -26,7 +26,6 @@ export class KatanaAccessory {
 
   private readonly tvService: Service;
   private readonly speakerService: Service;
-  private readonly volumeLightService: Service;
 
   private currentInput: InputName = 'computer';
   private currentVolume = 50;
@@ -93,7 +92,7 @@ export class KatanaAccessory {
 
     this.speakerService
       .setCharacteristic(C.Active, C.Active.ACTIVE)
-      .setCharacteristic(C.VolumeControlType, C.VolumeControlType.ABSOLUTE);
+      .setCharacteristic(C.VolumeControlType, C.VolumeControlType.RELATIVE_WITH_CURRENT);
 
     this.speakerService.getCharacteristic(C.Mute)
       .onGet(() => this.currentMuted)
@@ -140,27 +139,9 @@ export class KatanaAccessory {
       this.tvService.addLinkedService(inputService);
     }
 
-    // -- Volume as dimmable Lightbulb --
-    // Brightness 0-100 = Volume 0-100%, On/Off = Unmute/Mute
-    // This gives a nice slider in HomeKit and works with Siri voice commands.
-    this.volumeLightService = accessory.getService(Svc.Lightbulb) ||
-      accessory.addService(Svc.Lightbulb, 'Katana Volume', 'katana-volume-light');
-
-    this.volumeLightService.getCharacteristic(C.On)
-      .onGet(() => !this.currentMuted)
-      .onSet(async (value: CharacteristicValue) => {
-        this.currentMuted = !(value as boolean);
-        this.log.info('Mute:', this.currentMuted);
-        await this.client.setMute(this.currentMuted);
-      });
-
-    this.volumeLightService.getCharacteristic(C.Brightness)
-      .onGet(() => this.currentVolume)
-      .onSet(async (value: CharacteristicValue) => {
-        this.currentVolume = value as number;
-        this.log.info('Volume:', this.currentVolume, '%');
-        await this.client.setVolume(this.currentVolume);
-      });
+    // Retire the volume-as-light workaround; use the linked receiver speaker.
+    const oldVolume = accessory.getServiceById(Svc.Lightbulb, 'katana-volume-light');
+    if (oldVolume) accessory.removeService(oldVolume);
 
     // LED color/brightness now live on a separate light accessory.
     const oldLed = accessory.getServiceById(Svc.Switch, 'katana-led');
@@ -168,7 +149,8 @@ export class KatanaAccessory {
 
     // -- Initial state & polling --
     this.refreshState();
-    setInterval(() => this.refreshState(), POLL_INTERVAL_MS);
+    const poll = setInterval(() => this.refreshState(), POLL_INTERVAL_MS);
+    api.on('shutdown', () => clearInterval(poll));
   }
 
   private async adjustVolume(step: number): Promise<void> {
@@ -177,7 +159,6 @@ export class KatanaAccessory {
     await this.client.setVolume(this.currentVolume);
     const C = this.api.hap.Characteristic;
     this.speakerService.updateCharacteristic(C.Volume, this.currentVolume);
-    this.volumeLightService.updateCharacteristic(C.Brightness, this.currentVolume);
   }
 
   private async refreshState(): Promise<void> {
@@ -194,12 +175,10 @@ export class KatanaAccessory {
         if (volume.percent !== null) {
           this.currentVolume = volume.percent;
           this.speakerService.updateCharacteristic(C.Volume, this.currentVolume);
-          this.volumeLightService.updateCharacteristic(C.Brightness, this.currentVolume);
         }
         if (volume.muted !== null) {
           this.currentMuted = volume.muted;
           this.speakerService.updateCharacteristic(C.Mute, this.currentMuted);
-          this.volumeLightService.updateCharacteristic(C.On, !this.currentMuted);
         }
       }
 
