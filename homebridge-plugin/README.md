@@ -60,3 +60,13 @@ Run `npm test` for HomeKit light batching and on/off checks.
 ## More Information
 
 See the [katanactl repository](https://github.com/maxonary/katanactl) for REST API setup and full documentation.
+
+
+### Home app volume control (0.2.2)
+
+**Soundbar** exposes volume as a Fan service: rotation speed is the hardware
+volume percentage; On unmutes and Off mutes. It is not a light, so light-group
+commands do not change audio volume. **Soundbar Licht** remains a separate real
+RGB light. Linked receiver controls are also retained. Existing accessory and
+bridge pairing identities are unchanged. Apple Home may retain a manually set
+name; update it in that accessory's settings if necessary.

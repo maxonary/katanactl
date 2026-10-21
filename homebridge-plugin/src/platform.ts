@@ -52,8 +52,9 @@ export class KatanaPlatform implements DynamicPlatformPlugin {
     let light = this.accessories.find(a => a.UUID === lightUuid);
     const newLight = !light;
     if (!light) {
-      light = new this.api.platformAccessory('Katana Licht', lightUuid);
+      light = new this.api.platformAccessory('Soundbar Licht', lightUuid);
     }
+    light.displayName = 'Soundbar Licht';
     new KatanaLight(this.log, this.api, light, this.client);
     if (newLight) this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [light]);
     else this.api.updatePlatformAccessories([light]);

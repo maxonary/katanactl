@@ -20,5 +20,8 @@ const set=(svc,C,v)=>new Promise((resolve,reject)=>svc.getCharacteristic(C).setV
  await set(speaker,hap.Characteristic.VolumeSelector,hap.Characteristic.VolumeSelector.INCREMENT);assert.equal(volume,45);
  await set(speaker,hap.Characteristic.VolumeSelector,hap.Characteristic.VolumeSelector.DECREMENT);assert.equal(volume,40);
  await set(speaker,hap.Characteristic.Mute,true);assert.equal(muted,true);
+ const fan=accessory.getService(hap.Service.Fan);assert(fan);
+ await set(fan,hap.Characteristic.RotationSpeed,35);assert.equal(volume,35);
+ await set(fan,hap.Characteristic.On,true);assert.equal(muted,false);
  events.emit('shutdown');console.log('Receiver +/- and mute passed; volume light removed');
 })().catch(e=>{events.emit('shutdown');console.error(e);process.exitCode=1;});

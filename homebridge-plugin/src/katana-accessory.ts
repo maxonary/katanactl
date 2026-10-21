@@ -26,6 +26,7 @@ export class KatanaAccessory {
 
   private readonly tvService: Service;
   private readonly speakerService: Service;
+  private readonly volumeFanService: Service;
 
   private currentInput: InputName = 'computer';
   private currentVolume = 50;
@@ -143,6 +144,16 @@ export class KatanaAccessory {
     const oldVolume = accessory.getServiceById(Svc.Lightbulb, 'katana-volume-light');
     if (oldVolume) accessory.removeService(oldVolume);
 
+    this.volumeFanService = accessory.getServiceById(Svc.Fan, 'katana-volume-fan') ||
+      accessory.addService(Svc.Fan, 'Soundbar', 'katana-volume-fan');
+    this.volumeFanService.setCharacteristic(C.Name, 'Soundbar');
+    this.volumeFanService.getCharacteristic(C.On).onGet(() => !this.currentMuted).onSet(async value => {
+      await this.client.setMute(!value);this.currentMuted=!value;
+    });
+    this.volumeFanService.getCharacteristic(C.RotationSpeed).onGet(() => this.currentVolume).onSet(async value => {
+      await this.client.setVolume(value as number);this.currentVolume=value as number;
+    });
+
     // LED color/brightness now live on a separate light accessory.
     const oldLed = accessory.getServiceById(Svc.Switch, 'katana-led');
     if (oldLed) accessory.removeService(oldLed);
@@ -159,6 +170,7 @@ export class KatanaAccessory {
     await this.client.setVolume(this.currentVolume);
     const C = this.api.hap.Characteristic;
     this.speakerService.updateCharacteristic(C.Volume, this.currentVolume);
+    this.volumeFanService.updateCharacteristic(C.RotationSpeed, this.currentVolume);
   }
 
   private async refreshState(): Promise<void> {
@@ -175,10 +187,12 @@ export class KatanaAccessory {
         if (volume.percent !== null) {
           this.currentVolume = volume.percent;
           this.speakerService.updateCharacteristic(C.Volume, this.currentVolume);
+          this.volumeFanService.updateCharacteristic(C.RotationSpeed, this.currentVolume);
         }
         if (volume.muted !== null) {
           this.currentMuted = volume.muted;
           this.speakerService.updateCharacteristic(C.Mute, this.currentMuted);
+          this.volumeFanService.updateCharacteristic(C.On, !this.currentMuted);
         }
       }
 

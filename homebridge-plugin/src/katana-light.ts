@@ -22,8 +22,8 @@ export class KatanaLight {
       .setCharacteristic(C.Model, 'Sound BlasterX Katana Lighting')
       .setCharacteristic(C.SerialNumber, 'Katana-LED');
     this.service = accessory.getServiceById(S.Lightbulb, 'katana-rgb') ||
-      accessory.addService(S.Lightbulb, 'Katana Licht', 'katana-rgb');
-    this.service.setCharacteristic(C.Name, 'Katana Licht');
+      accessory.addService(S.Lightbulb, 'Soundbar Licht', 'katana-rgb');
+    this.service.setCharacteristic(C.Name, 'Soundbar Licht');
     this.service.getCharacteristic(C.On).onGet(() => this.enabled).onSet(value => {
       this.enabled = value as boolean;
       return this.queueChange(false);
